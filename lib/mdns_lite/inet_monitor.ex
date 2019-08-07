@@ -55,10 +55,9 @@ defmodule MdnsLite.InetMonitor do
     removed_ips = state.ip_list -- new_ip_list
     added_ips = new_ip_list -- state.ip_list
 
-    IO.puts("Removed #{inspect(removed_ips)}")
+    # Remove responders for IP addresses that no longer exist and add
+    # responders for new ones.
     Enum.each(removed_ips, fn {_ifname, addr} -> Responder.stop_server(addr) end)
-
-    IO.puts("Added #{inspect(added_ips)}")
     Enum.each(added_ips, fn {_ifname, addr} -> ResponderSupervisor.start_child(addr) end)
 
     %State{state | ip_list: new_ip_list}
