@@ -5,16 +5,18 @@ defmodule MdnsLite.InetMonitor do
 
   alias MdnsLite.{Responder, ResponderSupervisor}
 
-  @scan_interval 10000
+  @default_scan_interval 10000
 
   @moduledoc """
   Watch :inet.getifaddrs/0 for IP address changes and update the active responders.
+  The interval between scans - in seconds - can be adjusted with a config value
+  `:mdns_lite, :scan_interval`. The default is `@default_scan_interval`
   """
 
   defmodule State do
     @moduledoc false
 
-    defstruct [:excluded_ifnames, :ipv4_only, :ip_list]
+    defstruct [:excluded_ifnames, :ipv4_only, :ip_list, :scan_interval]
   end
 
   @doc """
@@ -37,7 +39,15 @@ defmodule MdnsLite.InetMonitor do
 
     ipv4_only = Keyword.get(args, :ipv4_only, true)
 
-    state = %State{excluded_ifnames: excluded_ifnames_cl, ip_list: [], ipv4_only: ipv4_only}
+    scan_interval = Application.get_env(:mdns_lite, :inet_scan_interval, @default_scan_interval)
+
+    state = %State{
+      excluded_ifnames: excluded_ifnames_cl,
+      ip_list: [],
+      ipv4_only: ipv4_only,
+      scan_interval: scan_interval
+    }
+
     {:ok, state, 1}
   end
 
@@ -45,7 +55,7 @@ defmodule MdnsLite.InetMonitor do
   def handle_info(:timeout, state) do
     new_state = update(state)
 
-    {:noreply, new_state, @scan_interval}
+    {:noreply, new_state, state.scan_interval}
   end
 
   defp update(state) do
