@@ -36,6 +36,10 @@ defmodule MdnsLite.InetMonitor do
 
     ipv4_only = Keyword.get(args, :ipv4_only, true)
 
+    if function_exported?(VintageNet, :subscribe, 1) do
+      VintageNet.subscribe(["interface", :_, "addresses"])
+    end
+
     state = %State{excluded_ifnames: excluded_ifnames_cl, ip_list: [], ipv4_only: ipv4_only}
     {:ok, state, 1}
   end
@@ -47,9 +51,22 @@ defmodule MdnsLite.InetMonitor do
     {:noreply, new_state, @scan_interval}
   end
 
-  defp update(state) do
+  def handle_info({VintageNet, ["interface", ifname, "addresses"], old, new, _}, state) do
+    ifname = to_charlist(ifname)
+    old = Enum.map(old, &{ifname, &1.address})
+    new = Enum.map(new, &{ifname, &1.address})
+
+    ip_list =
+      (state.ip_list -- old)
+      |> Stream.concat(new)
+      |> Enum.uniq()
+
+    {:ok, update(state, ip_list)}
+  end
+
+  defp update(state, ip_list \\ nil) do
     new_ip_list =
-      get_all_ip_addrs()
+      (ip_list || get_all_ip_addrs())
       |> filter_excluded_ifnames(state.excluded_ifnames)
       |> filter_by_ipv4(state.ipv4_only)
 
