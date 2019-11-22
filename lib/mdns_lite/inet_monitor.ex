@@ -5,6 +5,8 @@ defmodule MdnsLite.InetMonitor do
 
   alias MdnsLite.{Responder, ResponderSupervisor}
 
+  @type ip_record :: {charlist() | String.t(), :inet.ip_address()}
+
   @scan_interval 10000
 
   @moduledoc false
@@ -29,6 +31,20 @@ defmodule MdnsLite.InetMonitor do
     GenServer.start_link(__MODULE__, init_args, name: __MODULE__)
   end
 
+  @doc """
+  Add a single or list of ip_record() to the monitor
+  """
+  @spec add(ip_record | [ip_record]) :: :ok | {:error, :invalid_ip}
+  def add(ip) when is_tuple(ip), do: add([ip])
+  def add(ip_list), do: GenServer.call(__MODULE__, {:add, ip_list})
+
+  @doc """
+  Remove a single or list of ip_record() from the monitor
+  """
+  @spec remove(ip_record | [ip_record]) :: :ok
+  def remove(ip) when is_tuple(ip), do: remove([ip])
+  def remove(ip_list), do: GenServer.call(__MODULE__, {:remove, ip_list})
+
   @impl true
   def init(args) do
     excluded_ifnames = Keyword.get(args, :excluded_ifnames, [])
@@ -41,15 +57,37 @@ defmodule MdnsLite.InetMonitor do
   end
 
   @impl true
+  def handle_call({:add, ip_list}, _from, state) do
+    validate_ip_list(ip_list)
+    |> case do
+      :bad_ip ->
+        {:reply, {:error, :invalid_ip}, state}
+
+      ip_list ->
+        new_ip_list = Enum.uniq(state.ip_list ++ ip_list)
+        {:reply, :ok, do_update(state, new_ip_list)}
+    end
+  end
+
+  def handle_call({:remove, ip_list}, _from, state) do
+    new_ip_list =
+      Enum.reduce(ip_list, state.ip_list, fn {ifname, addr}, acc ->
+        List.delete(acc, {to_charlist(ifname), addr})
+      end)
+
+    {:reply, :ok, do_update(state, new_ip_list)}
+  end
+
+  @impl true
   def handle_info(:timeout, state) do
-    new_state = update(state)
+    new_state = do_update(state)
 
     {:noreply, new_state, @scan_interval}
   end
 
-  defp update(state) do
+  defp do_update(state, ip_list \\ nil) do
     new_ip_list =
-      get_all_ip_addrs()
+      (ip_list || get_all_ip_addrs())
       |> filter_excluded_ifnames(state.excluded_ifnames)
       |> filter_by_ipv4(state.ipv4_only)
 
@@ -72,6 +110,19 @@ defmodule MdnsLite.InetMonitor do
 
   defp filter_by_ipv4(ip_list, true) do
     Enum.filter(ip_list, fn {_ifname, addr} -> MdnsLite.Utilities.ip_family(addr) == :inet end)
+  end
+
+  defp validate_ip_list(ip_list) do
+    Enum.reduce_while(ip_list, [], fn {ifname, addr}, acc ->
+      case MdnsLite.Utilities.to_ip(addr) do
+        :bad_ip ->
+          {:halt, :bad_ip}
+
+        ip ->
+          ifname = to_charlist(ifname)
+          {:cont, [{ifname, ip} | acc]}
+      end
+    end)
   end
 
   defp get_all_ip_addrs() do

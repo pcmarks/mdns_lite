@@ -31,9 +31,9 @@ config :mdns_lite,
   ]
 
 if Mix.env() == :test do
-  # Disable the IP address monitor for mdns_lite unit tests (this is a no-op)
+  # Disable UDP subscription, but allow responders to start for tests
   config :mdns_lite,
-    ip_address_monitor: {Agent, fn -> nil end}
+    active_responders: false
 end
 
 # This configuration is loaded before any dependency and is restricted

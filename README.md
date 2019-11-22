@@ -14,7 +14,11 @@ services in the Configuration section below.
 MdnsLite employs a network interface monitor that can dynamically adjust to
 network changes, e.g., assignment of a new IP address to a host. The current
 version of MdnsLite comes with an `InetMonitor` which periodically checks via `inet:getifaddrs()`
-for changes in the network. For example, a change could be the re-assignment of IP addresses. For configuration values related to the interface monitor, please see the Configuration section below.
+for changes in the network. For example, a change could be the re-assignment of IP addresses.
+You can also update `InetMonitor` manually through the API via `InetMonitor.add/1` and
+`InetMonitor.remove/1`. This is useful if your networking supplies notifications for events and
+you want to supply the changes without needing a new monitor. For configuration values related
+to the interface monitor, please see the Configuration section below.
 
 MdnsLite recognizes the following [query types](https://en.wikipedia.org/wiki/List_of_DNS_record_types):
 

@@ -28,4 +28,29 @@ defmodule MdnsLite.Utilities do
   @spec ip_family(:inet.ip_address()) :: :inet | :inet6
   def ip_family({_, _, _, _}), do: :inet
   def ip_family({_, _, _, _, _, _, _, _}), do: :inet6
+
+  @doc """
+  Convert a value to an :inet.ip_address()
+  """
+  @spec to_ip(any) :: :inet.ip_address() | :bad_ip
+  def to_ip(ip) when is_tuple(ip) do
+    case :inet.ntoa(ip) do
+      {:error, _} -> :bad_ip
+      ip_char -> to_ip(ip_char)
+    end
+  end
+
+  def to_ip(ip) when is_list(ip) do
+    case :inet.parse_strict_address(ip) do
+      {:ok, ip} -> ip
+      _ -> :bad_ip
+    end
+  end
+
+  def to_ip(ip_str) when is_bitstring(ip_str) do
+    to_charlist(ip_str)
+    |> to_ip()
+  end
+
+  def to_ip(_), do: :bad_ip
 end

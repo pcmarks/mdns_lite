@@ -107,4 +107,31 @@ defmodule MdnsLite.UtilitiesTest do
     assert Utilities.ip_family({192, 168, 9, 213}) == :inet
     assert Utilities.ip_family({65152, 0, 0, 0, 3177, 34598, 19643, 57597}) == :inet6
   end
+
+  test "to_ip" do
+    bad =
+      [
+        {1, 2},
+        "192.a.b.1",
+        :wat,
+        {1, 2, "4", 4},
+        {1, 2, "4", 4, 5, 6},
+        10
+      ]
+      |> Enum.map(&Utilities.to_ip/1)
+
+    good =
+      [
+        {192, 168, 0, 1},
+        "192.168.0.1",
+        '192.168.0.1',
+        {64768, 48059, 0, 0, 0, 0, 0, 10},
+        'fd00:bbbb::a',
+        "fd00:bbbb::a"
+      ]
+      |> Enum.map(&Utilities.to_ip/1)
+
+    assert Enum.all?(bad, &(&1 == :bad_ip))
+    assert Enum.all?(good, &is_tuple/1)
+  end
 end

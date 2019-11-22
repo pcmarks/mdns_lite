@@ -30,7 +30,8 @@ defmodule MdnsLite.Responder do
               dot_alias_name: '',
               ttl: 120,
               ip: {0, 0, 0, 0},
-              udp: nil
+              udp: nil,
+              active: true
   end
 
   ##############################################################################
@@ -77,11 +78,17 @@ defmodule MdnsLite.Responder do
        ttl: mdns_config.ttl,
        instance_name: instance_name,
        dot_local_name: to_charlist(dot_local_name),
-       dot_alias_name: to_charlist(dot_alias_name)
+       dot_alias_name: to_charlist(dot_alias_name),
+       active: Application.get_env(:mdns_lite, :active_responders, true)
      }, {:continue, :initialization}}
   end
 
   @impl true
+  def handle_continue(:initialization, %{active: false} = state) do
+    # Used only for testing.
+    {:noreply, state}
+  end
+
   def handle_continue(:initialization, state) do
     {:ok, udp} = :gen_udp.open(@mdns_port, udp_options(state.ip))
 
